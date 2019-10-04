@@ -1,0 +1,15 @@
+{
+  "name": "scam-ico",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scam ICO onboarding exercise",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "canonical-weth": "^1.4.0",
+    "truffle": "^5.0.38",
+    "web3": "^1.2.1"
+  }
+}
