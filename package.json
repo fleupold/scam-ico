@@ -8,6 +8,7 @@
   },
   "license": "UNLICENSED",
   "devDependencies": {
+    "@openzeppelin/contracts": "^2.3.0",
     "canonical-weth": "^1.4.0",
     "truffle": "^5.0.38",
     "web3": "^1.2.1"
