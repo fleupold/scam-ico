@@ -24,12 +24,14 @@ contract ScamIco {
 
   function state() public view returns (State) {
     if (close == uint256(-1)) {
-      require(remaining == 0, "Internal state error"); // just a sanity check
       return State.FUNDING;
-    } else if (now < close + 2 hours) {
-      return State.CLOSED;
     } else {
-      return State.FINISHED;
+      require(remaining == 0, "Internal state error"); // just a sanity check
+      if (now < close + 2 hours) {
+        return State.CLOSED;
+      } else {
+        return State.FINISHED;
+      }
     }
   }
 
