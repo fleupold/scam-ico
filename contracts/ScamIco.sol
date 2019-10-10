@@ -10,6 +10,8 @@ contract ScamIco {
   Scam public scm;
 
   uint256 constant target = 100 ether;
+  uint256 constant rate = 10;
+
   uint256 public remaining;
   uint256 public close;
   mapping(address => uint256) public contributions;
@@ -56,12 +58,13 @@ contract ScamIco {
   function claim() public returns (uint256) {
     require(state() == State.FINISHED, "Tokens not ready to be claimed yet");
 
-    uint256 amount = contributions[msg.sender];
-    require(amount > 0, "Nothing to claim");
+    uint256 contribution = contributions[msg.sender];
+    require(contribution > 0, "Nothing to claim");
 
     contributions[msg.sender] = 0;
-    scm.mint(msg.sender, amount);
+    uint256 tokens = contribution * rate; // safe from overflow since max contribution is 100 eth
+    scm.mint(msg.sender, tokens);
 
-    return amount;
+    return tokens;
   }
 }
