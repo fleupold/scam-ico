@@ -1,5 +1,5 @@
 const ScamIco = artifacts.require("ScamIco");
-const Weth9 = artifacts.require("WETH9");
+const Weth = artifacts.require("WETH9");
 const wethArtifact = require("canonical-weth");
 
 module.exports = async function(deployer) {
@@ -8,8 +8,8 @@ module.exports = async function(deployer) {
   // the address of an existing WETH9 contract
   let wethAddress;
   if (deployer.network === "development") {
-    await deployer.deploy(Weth9);
-    wethAddress = Weth9.address;
+    await deployer.deploy(Weth);
+    wethAddress = Weth.address;
   } else {
     wethAddress = wethArtifact.networks[deployer.network_id];
   }
@@ -17,6 +17,6 @@ module.exports = async function(deployer) {
   if (wethAddress === undefined) {
     throw new Error(`unable to locate WETH9 contract address for network ${network}`);
   }
-  console.log(arguments);
+
   await deployer.deploy(ScamIco, wethAddress);
 };

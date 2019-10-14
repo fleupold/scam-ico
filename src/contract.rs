@@ -1,6 +1,6 @@
 use crate::truffle::Artifact;
 use ethabi::{Contract as AbiContract, Function, Result as AbiResult};
-use ethsign::{Protected, SecretKey, Signature};
+use ethsign::{SecretKey, Signature};
 use rlp::RlpStream;
 use std::error::Error;
 use web3::api::Eth;
