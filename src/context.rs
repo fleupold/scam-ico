@@ -6,7 +6,7 @@ use web3::contract::Error as Web3ContractError;
 use web3::error::Error as Web3Error;
 use web3::futures::future::{self, Either};
 use web3::futures::Future;
-use web3::types::Address;
+use web3::types::{Address, U256};
 use web3::{Transport, Web3};
 
 pub struct Context<T: Transport> {
@@ -94,6 +94,56 @@ impl<T: Transport> Context<T> {
                     }))
             }))
     }
+
+    pub fn remaining(&self) -> f64 {
+        match self.ico.call::<_, _, U256>("remaining", ()).wait() {
+            Ok(r) => u256_to_f64_amount(r, 18),
+            Err(_) => -1.0,
+        }
+    }
+
+    pub fn balances(
+        &self,
+        account: Address,
+    ) -> impl Future<Item = (f64, f64, f64), Error = ContextError> {
+        Future::join3(
+            self.web3
+                .eth()
+                .balance(account, None)
+                .map(|balance| u256_to_f64_amount(balance, 18))
+                .map_err(Into::into),
+            erc20_balance(self.weth.clone(), account),
+            erc20_balance(self.scm.clone(), account),
+        )
+    }
+}
+
+fn erc20_balance<T>(
+    token: Contract<T>,
+    account: Address,
+) -> impl Future<Item = f64, Error = ContextError>
+where
+    T: Transport,
+{
+    token
+        .call::<_, _, U256>("decimals", ())
+        .and_then(move |decimals| {
+            token
+                .call::<_, _, U256>("balanceOf", account)
+                .map(move |balance| (decimals, balance))
+        })
+        .and_then(|(decimals, balance)| Ok(u256_to_f64_amount(balance, decimals.as_u32() as _)))
+        .map_err(Into::into)
+}
+
+fn u256_to_f64_amount(a: U256, decimals: i32) -> f64 {
+    let div = U256::from(10).pow(decimals.into());
+    let (q, r) = a.div_mod(div);
+
+    let whole = q.low_u32() as f64;
+    let fraction = (r.low_u64() as f64) * (10.0f64).powi(-decimals);
+
+    (whole + fraction)
 }
 
 #[derive(Debug, Error)]

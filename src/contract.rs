@@ -13,6 +13,7 @@ use web3::types::{
 };
 use web3::{Transport, Web3};
 
+#[derive(Clone)]
 pub struct Contract<T: Transport> {
     web3: Web3<T>,
     contract: Web3Contract<T>,

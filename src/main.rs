@@ -14,8 +14,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
 use termion::event::Key;
+use tui::layout::{Alignment, Layout, Direction, Constraint};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{Block, Borders, SelectableList, Widget};
+use tui::widgets::{Paragraph, Text, Block, Borders, SelectableList, Widget};
 use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::Address;
@@ -93,10 +94,7 @@ fn main() {
     };
 
     let account_selection = RefCell::new(0usize);
-    let account_addresses: Vec<_> = wallet
-        .accounts()
-        .map(|address| format!("{:?}", address))
-        .collect();
+    let naccounts = wallet.accounts().count();
 
     use Control::*;
     Gui::new()
@@ -105,19 +103,40 @@ fn main() {
         .with_action(Key::Char('q'), || Quit(0))
         .with_action(Key::Up, || {
             account_selection.replace_with(|&mut v| match v {
-                0 => account_addresses.len() - 1,
+                0 => naccounts - 1,
                 n => n - 1,
             });
             Continue
         })
         .with_action(Key::Down, || {
-            account_selection.replace_with(|&mut v| (v + 1) % account_addresses.len());
+            account_selection.replace_with(|&mut v| (v + 1) % naccounts);
             Continue
         })
         .run(|mut f| {
             let size = f.size();
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(&[Constraint::Length(8), Constraint::Min(0), Constraint::Length(4)][..])
+                .split(size);
+
+            Paragraph::new([
+                    Text::raw("\nOnce in a lifetime chance to get rich!\n"),
+                    Text::raw("Participate in our ICO and receive 10 time what you contributed in just 2 hours!\n\n"),
+                    Text::raw(format!("Only {} left!", context.remaining())),
+                ].iter())
+                .wrap(true)
+                .alignment(Alignment::Center)
+                .block(Block::default().title("Scam ICO").borders(Borders::ALL))
+                .render(&mut f, chunks[0]);
+            
+            let accounts: Vec<_> = wallet.accounts()
+                .map(|account| {
+                    let (eth, weth, scm) = context.balances(account).wait().unwrap_or((-1.0, -1.0, -1.0));
+                    format!("{:?}   {} ETH | {} WETH | {} SCM", account, eth, weth, scm)
+                })
+                .collect();
             SelectableList::default()
-                .items(&account_addresses)
+                .items(&accounts)
                 .select(Some(*account_selection.borrow()))
                 .highlight_style(
                     Style::default()
@@ -126,7 +145,26 @@ fn main() {
                 )
                 .highlight_symbol(">")
                 .block(Block::default().title("Accounts").borders(Borders::ALL))
-                .render(&mut f, size);
+                .render(&mut f, chunks[1]);
+
+            Paragraph::new([
+                    Text::styled("q", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Quit                   "),
+                    Text::styled("r", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Refresh View           "),
+                    Text::styled("^/v", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Select Account\n"),
+                    Text::styled("s", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Purchase WETH          "),
+                    Text::styled("d", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Magic WETH (testnet)   "),
+                    Text::styled("f", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Participate in ICO"),
+                ].iter())
+                .wrap(true)
+                .alignment(Alignment::Left)
+                .block(Block::default().title("Help").borders(Borders::ALL))
+                .render(&mut f, chunks[2]);
         })
         .unwrap();
 }
