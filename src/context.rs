@@ -116,6 +116,65 @@ impl<T: Transport> Context<T> {
             erc20_balance(self.scm.clone(), account),
         )
     }
+
+    pub fn purchase_weth(
+        &self,
+        account: Address,
+        amount: f64,
+    ) -> impl Future<Item = (), Error = ContextError> {
+        let weth = self.weth.clone();
+        weth.call::<_, _, U256>("decimals", ())
+            .map(|decimals| decimals.as_u32() as i32)
+            .map_err(ContextError::from)
+            .and_then(move |decimals| {
+                let amount = f64_amount_to_u256(amount, decimals);
+                weth.function("deposit", ())
+                    .value(Some(amount))
+                    .from(account)
+                    .send()
+                    .map(|_| ())
+                    .map_err(ContextError::from)
+            })
+    }
+
+    pub fn magic_weth(
+        &self,
+        account: Address,
+        amount: f64,
+    ) -> impl Future<Item = (), Error = ContextError> {
+        let weth = self.weth.clone();
+        weth.call::<_, _, U256>("decimals", ())
+            .map(|decimals| decimals.as_u32() as i32)
+            .map_err(ContextError::from)
+            .and_then(move |decimals| {
+                let amount = f64_amount_to_u256(amount, decimals);
+                weth.function("magicallyCreate", (account, amount))
+                    .send()
+                    .map(|_| ())
+                    .map_err(ContextError::from)
+            })
+    }
+
+    pub fn fund(
+        &self,
+        account: Address,
+        amount: f64,
+    ) -> impl Future<Item = (), Error = ContextError> {
+        let ico = self.ico.clone();
+        let weth = self.weth.clone();
+
+        unimplemented!();
+        ico.call::<_, _, U256>("fund", ())
+            .map(|decimals| decimals.as_u32() as i32)
+            .map_err(ContextError::from)
+            .and_then(move |decimals| {
+                let amount = f64_amount_to_u256(amount, decimals);
+                weth.function("magicallyCreate", (account, amount))
+                    .send()
+                    .map(|_| ())
+                    .map_err(ContextError::from)
+            })
+    }
 }
 
 fn erc20_balance<T>(
@@ -142,6 +201,14 @@ fn u256_to_f64_amount(a: U256, decimals: i32) -> f64 {
 
     let whole = q.low_u32() as f64;
     let fraction = (r.low_u64() as f64) * (10.0f64).powi(-decimals);
+
+    (whole + fraction)
+}
+
+fn f64_amount_to_u256(a: f64, decimals: i32) -> U256 {
+    let (t, f) = (a.trunc() as u64, a.fract());
+    let whole = U256::from(t) * U256::from(10).pow(decimals.into());
+    let fraction = U256::from((f * (10.0f64).powi(decimals)) as u64);
 
     (whole + fraction)
 }

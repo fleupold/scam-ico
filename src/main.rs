@@ -99,8 +99,8 @@ fn main() {
     use Control::*;
     Gui::new()
         .expect("failed to setup terminal")
-        .with_action(Key::F(5), || Continue)
         .with_action(Key::Char('q'), || Quit(0))
+        .with_action(Key::F(5), || Continue)
         .with_action(Key::Up, || {
             account_selection.replace_with(|&mut v| match v {
                 0 => naccounts - 1,
@@ -112,6 +112,30 @@ fn main() {
             account_selection.replace_with(|&mut v| (v + 1) % naccounts);
             Continue
         })
+        .with_action(Key::Char('s'), || Input(Box::new(|input| {
+            let amount: f64 = match input.parse() {
+                Ok(a) => a,
+                Err(_) => return,
+            };
+            let account = wallet.accounts().nth(*account_selection.borrow()).unwrap();
+            let _ = context.purchase_weth(account, amount).wait();
+        })))
+        .with_action(Key::Char('d'), || Input(Box::new(|input| {
+            let amount: f64 = match input.parse() {
+                Ok(a) => a,
+                Err(_) => return,
+            };
+            let account = wallet.accounts().nth(*account_selection.borrow()).unwrap();
+            let _ = context.magic_weth(account, amount).wait();
+        })))
+        .with_action(Key::Char('f'), || Input(Box::new(|input| {
+            let amount: f64 = match input.parse() {
+                Ok(a) => a,
+                Err(_) => return,
+            };
+            let account = wallet.accounts().nth(*account_selection.borrow()).unwrap();
+            let _ = context.fund(account, amount).wait();
+        })))
         .run(|mut f| {
             let size = f.size();
             let chunks = Layout::default()
@@ -150,8 +174,8 @@ fn main() {
             Paragraph::new([
                     Text::styled("q", Style::default().modifier(Modifier::BOLD)),
                     Text::raw(": Quit                   "),
-                    Text::styled("r", Style::default().modifier(Modifier::BOLD)),
-                    Text::raw(": Refresh View           "),
+                    Text::styled("F5", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Refresh View          "),
                     Text::styled("^/v", Style::default().modifier(Modifier::BOLD)),
                     Text::raw(": Select Account\n"),
                     Text::styled("s", Style::default().modifier(Modifier::BOLD)),
