@@ -2,10 +2,9 @@ use crate::truffle::Artifact;
 use ethabi::{Contract as AbiContract, Function, Result as AbiResult};
 use ethsign::{SecretKey, Signature};
 use rlp::RlpStream;
-use std::error::Error;
 use web3::api::Eth;
 use web3::contract::tokens::{Detokenize, Tokenize};
-use web3::contract::{Contract as Web3Contract, QueryResult};
+use web3::contract::{Contract as Web3Contract, QueryResult, Error as Web3ContractError};
 use web3::error::Error as Web3Error;
 use web3::futures::future::{self, Either};
 use web3::futures::Future;
@@ -24,7 +23,7 @@ impl<T: Transport> Contract<T> {
     pub fn new(
         web3: Web3<T>,
         artifact: Artifact,
-    ) -> impl Future<Item = Contract<T>, Error = impl Error> {
+    ) -> impl Future<Item = Contract<T>, Error = Web3Error> {
         web3.net().version().and_then(move |network_id| {
             let address = artifact.networks[&network_id].address;
             Ok(Contract::at(web3, address, artifact))
@@ -70,7 +69,7 @@ impl<T: Transport> Contract<T> {
         ))
     }
 
-    pub fn call<S, P, R>(&self, name: S, params: P) -> impl Future<Item = R, Error = impl Error>
+    pub fn call<S, P, R>(&self, name: S, params: P) -> impl Future<Item = R, Error = Web3ContractError>
     where
         S: AsRef<str>,
         P: Tokenize,
@@ -79,7 +78,7 @@ impl<T: Transport> Contract<T> {
         self.function(name, params).call()
     }
 
-    pub fn send<S, P>(&self, name: S, params: P) -> impl Future<Item = H256, Error = impl Error>
+    pub fn send<S, P>(&self, name: S, params: P) -> impl Future<Item = H256, Error = Web3Error>
     where
         S: AsRef<str>,
         P: Tokenize,
@@ -174,7 +173,7 @@ impl<T: Transport> ContractTransactionBuilder<T> {
         self
     }
 
-    fn build_raw_transaction(self) -> impl Future<Item = Bytes, Error = impl Error> {
+    fn build_raw_transaction(self) -> impl Future<Item = Bytes, Error = Web3Error> {
         use Either::*;
 
         let nonce = match &self.tx.nonce {
@@ -222,7 +221,7 @@ impl<T: Transport> ContractTransactionBuilder<T> {
             })
     }
 
-    pub fn call<R>(self) -> impl Future<Item = R, Error = impl Error>
+    pub fn call<R>(self) -> impl Future<Item = R, Error = Web3ContractError>
     where
         R: Detokenize,
     {
@@ -243,7 +242,7 @@ impl<T: Transport> ContractTransactionBuilder<T> {
         )
     }
 
-    pub fn send(self) -> impl Future<Item = H256, Error = impl Error> {
+    pub fn send(self) -> impl Future<Item = H256, Error = Web3Error> {
         use Either::*;
 
         if self.secret.is_some() {

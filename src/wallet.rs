@@ -1,6 +1,6 @@
 use bip39::{Mnemonic, Seed};
 use ethsign::SecretKey;
-use std::error::Error;
+use web3::error::Error as Web3Error;
 use web3::futures::Future;
 use web3::types::Address;
 use web3::{Transport, Web3};
@@ -29,7 +29,7 @@ impl Wallet {
         Wallet { accounts }
     }
 
-    pub fn local<T>(web3: Web3<T>) -> impl Future<Item = Wallet, Error = impl Error>
+    pub fn local<T>(web3: Web3<T>) -> impl Future<Item = Wallet, Error = Web3Error>
     where
         T: Transport,
     {

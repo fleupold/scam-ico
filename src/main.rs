@@ -1,15 +1,21 @@
+mod context;
 mod contract;
+mod gui;
 mod truffle;
 mod wallet;
 
-use crate::contract::Contract;
-use crate::truffle::Artifact;
+use crate::context::Context;
+use crate::gui::{Control, Gui};
 use crate::wallet::Wallet;
 use bip39::{Language, Mnemonic};
+use std::cell::RefCell;
 use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
+use termion::event::Key;
+use tui::style::{Color, Modifier, Style};
+use tui::widgets::{Block, Borders, SelectableList, Widget};
 use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::Address;
@@ -66,7 +72,6 @@ fn main() {
 
     let (eloop, http) = Http::new(&opt.transport).expect("error setting up transport");
     eloop.into_remote();
-
     let web3 = Web3::new(http);
 
     let wallet = if let Some(mnemonic) = &opt.mnemonic {
@@ -77,37 +82,51 @@ fn main() {
             .expect("failed to get local accounts")
     };
 
-    let ico_artifact = Artifact::load(&opt.truffle_project, "ScamIco")
-        .expect("failed to load ICO truffle artifact");
-    let ico = if let Some(ico_address) = opt.contract {
-        Contract::at(web3.clone(), ico_address, ico_artifact)
-    } else {
-        Contract::new(web3.clone(), ico_artifact)
+    let context = if let Some(ico_address) = opt.contract {
+        Context::with_ico_address(web3.clone(), &opt.truffle_project, ico_address)
             .wait()
-            .expect("failed to get ICO contract")
+            .expect("failed to load context as specified address")
+    } else {
+        Context::new(web3.clone(), &opt.truffle_project)
+            .wait()
+            .expect("failed to deploy ico contract and load context")
     };
 
-    let weth_artifact = Artifact::load(&opt.truffle_project, "WETH9")
-        .expect("failed to load WETH truffle artifact");
-    let weth_address = ico
-        .call("weth", ())
-        .wait()
-        .expect("failed to get WETH address from ICO");
-    let weth = Contract::at(web3.clone(), weth_address, weth_artifact);
+    let account_selection = RefCell::new(0usize);
+    let account_addresses: Vec<_> = wallet
+        .accounts()
+        .map(|address| format!("{:?}", address))
+        .collect();
 
-    let scm_artifact =
-        Artifact::load(&opt.truffle_project, "Scam").expect("failed to load SCM truffle artifact");
-    let scm_address = ico
-        .call("scm", ())
-        .wait()
-        .expect("failed to get SCM address from ICO");
-    let scm = Contract::at(web3.clone(), scm_address, scm_artifact);
-
-    println!("Scam ICO @ {:?}", ico.address());
-    println!("WETH     @ {:?}", weth.address());
-    println!("SCM      @ {:?}", scm.address());
-    println!("Wallets  @");
-    for account in wallet.accounts() {
-        println!(" - {:?}", account);
-    }
+    use Control::*;
+    Gui::new()
+        .expect("failed to setup terminal")
+        .with_action(Key::F(5), || Continue)
+        .with_action(Key::Char('q'), || Quit(0))
+        .with_action(Key::Up, || {
+            account_selection.replace_with(|&mut v| match v {
+                0 => account_addresses.len() - 1,
+                n => n - 1,
+            });
+            Continue
+        })
+        .with_action(Key::Down, || {
+            account_selection.replace_with(|&mut v| (v + 1) % account_addresses.len());
+            Continue
+        })
+        .run(|mut f| {
+            let size = f.size();
+            SelectableList::default()
+                .items(&account_addresses)
+                .select(Some(*account_selection.borrow()))
+                .highlight_style(
+                    Style::default()
+                        .modifier(Modifier::ITALIC)
+                        .fg(Color::Yellow),
+                )
+                .highlight_symbol(">")
+                .block(Block::default().title("Accounts").borders(Borders::ALL))
+                .render(&mut f, size);
+        })
+        .unwrap();
 }
