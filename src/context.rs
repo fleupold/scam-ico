@@ -95,24 +95,51 @@ impl<T: Transport> Context<T> {
             }))
     }
 
-    pub fn remaining(&self) -> f64 {
-        match self.ico.call::<_, _, U256>("remaining", ()).wait() {
-            Ok(r) => u256_to_f64_amount(r, 18),
-            Err(_) => -1.0,
-        }
+    pub fn state(&self) -> impl Future<Item = State, Error = ContextError> {
+        use Either::*;
+
+        let ico = self.ico.clone();
+        ico.call::<_, _, U256>("state", ())
+            .map_err(ContextError::from)
+            .and_then(move |state| {
+                if state == U256::from(0) {
+                    A(ico
+                        .call("remaining", ())
+                        .map(|balance| State::Funding(u256_to_f64_amount(balance, 18)))
+                        .map_err(Into::into))
+                } else if state == U256::from(1) {
+                    B(A(future::ok(State::Closed)))
+                } else if state == U256::from(2) {
+                    B(A(future::ok(State::Finished)))
+                } else {
+                    B(B(future::err(ContextError::UnknownIcoState(state))))
+                }
+            })
+    }
+
+    pub fn claim(&self, account: Address) -> impl Future<Item = (), Error = ContextError> {
+        self.ico.function("claim", ())
+            .from(account)
+            .send()
+            .map(|_| ())
+            .map_err(Into::into)
     }
 
     pub fn balances(
         &self,
         account: Address,
-    ) -> impl Future<Item = (f64, f64, f64), Error = ContextError> {
-        Future::join3(
+    ) -> impl Future<Item = (f64, f64, f64, f64), Error = ContextError> {
+        Future::join4(
             self.web3
                 .eth()
                 .balance(account, None)
                 .map(|balance| u256_to_f64_amount(balance, 18))
                 .map_err(Into::into),
             erc20_balance(self.weth.clone(), account),
+            self.ico
+                .call("contributions", account)
+                .map(|balance| u256_to_f64_amount(balance, 18))
+                .map_err(Into::into),
             erc20_balance(self.scm.clone(), account),
         )
     }
@@ -149,6 +176,7 @@ impl<T: Transport> Context<T> {
             .and_then(move |decimals| {
                 let amount = f64_amount_to_u256(amount, decimals);
                 weth.function("magicallyCreate", (account, amount))
+                    .from(account)
                     .send()
                     .map(|_| ())
                     .map_err(ContextError::from)
@@ -163,13 +191,20 @@ impl<T: Transport> Context<T> {
         let ico = self.ico.clone();
         let weth = self.weth.clone();
 
-        unimplemented!();
-        ico.call::<_, _, U256>("fund", ())
+        weth.call::<_, _, U256>("decimals", ())
             .map(|decimals| decimals.as_u32() as i32)
             .map_err(ContextError::from)
             .and_then(move |decimals| {
                 let amount = f64_amount_to_u256(amount, decimals);
-                weth.function("magicallyCreate", (account, amount))
+                weth.function("approve", (ico.address(), amount))
+                    .from(account)
+                    .send()
+                    .map(move |_| (ico, account, amount))
+                    .map_err(ContextError::from)
+            })
+            .and_then(|(ico, account, amount)| {
+                ico.function("fund", amount)
+                    .from(account)
                     .send()
                     .map(|_| ())
                     .map_err(ContextError::from)
@@ -223,4 +258,14 @@ pub enum ContextError {
 
     #[error("web3 contract error: {0}")]
     Web3Contract(#[from] Web3ContractError),
+
+    #[error("unknown ICO state {0:?}")]
+    UnknownIcoState(U256),
+}
+
+#[derive(Debug)]
+pub enum State {
+    Funding(f64),
+    Closed,
+    Finished,
 }

@@ -4,7 +4,7 @@ mod gui;
 mod truffle;
 mod wallet;
 
-use crate::context::Context;
+use crate::context::{Context, State};
 use crate::gui::{Control, Gui};
 use crate::wallet::Wallet;
 use bip39::{Language, Mnemonic};
@@ -14,9 +14,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
 use termion::event::Key;
-use tui::layout::{Alignment, Layout, Direction, Constraint};
+use tui::layout::{Alignment, Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{Paragraph, Text, Block, Borders, SelectableList, Widget};
+use tui::widgets::{Block, Borders, Paragraph, SelectableList, Text, Widget};
 use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::Address;
@@ -136,6 +136,11 @@ fn main() {
             let account = wallet.accounts().nth(*account_selection.borrow()).unwrap();
             let _ = context.fund(account, amount).wait();
         })))
+        .with_action(Key::Char('c'), || {
+            let account = wallet.accounts().nth(*account_selection.borrow()).unwrap();
+            let _ = context.claim(account).wait();
+            Continue
+        })
         .run(|mut f| {
             let size = f.size();
             let chunks = Layout::default()
@@ -146,17 +151,22 @@ fn main() {
             Paragraph::new([
                     Text::raw("\nOnce in a lifetime chance to get rich!\n"),
                     Text::raw("Participate in our ICO and receive 10 time what you contributed in just 2 hours!\n\n"),
-                    Text::raw(format!("Only {} left!", context.remaining())),
+                    Text::raw(match context.state().wait() {
+                        Ok(State::Funding(remaining)) => format!("Only {} left!", remaining),
+                        Ok(State::Closed) => "ICO closed, come back soon to claim your mullah!".to_string(),
+                        Ok(State::Finished) => "Claim your rewards now!".to_string(),
+                        Err(_) => "???".to_string(),
+                    })
                 ].iter())
                 .wrap(true)
                 .alignment(Alignment::Center)
                 .block(Block::default().title("Scam ICO").borders(Borders::ALL))
                 .render(&mut f, chunks[0]);
-            
+
             let accounts: Vec<_> = wallet.accounts()
                 .map(|account| {
-                    let (eth, weth, scm) = context.balances(account).wait().unwrap_or((-1.0, -1.0, -1.0));
-                    format!("{:?}   {} ETH | {} WETH | {} SCM", account, eth, weth, scm)
+                    let (eth, weth, contrib, scm) = context.balances(account).wait().unwrap_or((-1.0, -1.0, -1.0, -1.0));
+                    format!("{:?} {:7.2} ETH | {:6.2}>{:6.2} WETH | {:7.2} SCM", account, eth, weth, contrib, scm)
                 })
                 .collect();
             SelectableList::default()
@@ -183,7 +193,9 @@ fn main() {
                     Text::styled("d", Style::default().modifier(Modifier::BOLD)),
                     Text::raw(": Magic WETH (testnet)   "),
                     Text::styled("f", Style::default().modifier(Modifier::BOLD)),
-                    Text::raw(": Participate in ICO"),
+                    Text::raw(": Participate in ICO     "),
+                    Text::styled("c", Style::default().modifier(Modifier::BOLD)),
+                    Text::raw(": Claim SCM"),
                 ].iter())
                 .wrap(true)
                 .alignment(Alignment::Left)
