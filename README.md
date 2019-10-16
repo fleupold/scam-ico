@@ -12,6 +12,8 @@ onboarding exercise.
 - NodeJS 10.x
 - Rust 1.38
 
+### Building and Running
+
 The first thing you need to do in order to try it out is to build and deploy the
 smart contracts. You can do this with truffle by calling the following script:
 
