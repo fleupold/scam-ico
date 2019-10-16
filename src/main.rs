@@ -150,7 +150,7 @@ fn main() {
 
             Paragraph::new([
                     Text::raw("\nOnce in a lifetime chance to get rich!\n"),
-                    Text::raw("Participate in our ICO and receive 10 time what you contributed in just 2 hours!\n\n"),
+                    Text::raw("Participate in our ICO and receive 10 times what you contributed in just 2 hours!\n\n"),
                     Text::raw(match context.state().wait() {
                         Ok(State::Funding(remaining)) => format!("Only {} left!", remaining),
                         Ok(State::Closed) => "ICO closed, come back soon to claim your mullah!".to_string(),

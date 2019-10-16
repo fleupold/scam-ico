@@ -1,10 +1,12 @@
+#![allow(dead_code)]
+
 use crate::truffle::Artifact;
 use ethabi::{Contract as AbiContract, Function, Result as AbiResult};
 use ethsign::{SecretKey, Signature};
 use rlp::RlpStream;
 use web3::api::Eth;
 use web3::contract::tokens::{Detokenize, Tokenize};
-use web3::contract::{Contract as Web3Contract, QueryResult, Error as Web3ContractError};
+use web3::contract::{Contract as Web3Contract, Error as Web3ContractError, QueryResult};
 use web3::error::Error as Web3Error;
 use web3::futures::future::{self, Either};
 use web3::futures::Future;
@@ -70,7 +72,11 @@ impl<T: Transport> Contract<T> {
         ))
     }
 
-    pub fn call<S, P, R>(&self, name: S, params: P) -> impl Future<Item = R, Error = Web3ContractError>
+    pub fn call<S, P, R>(
+        &self,
+        name: S,
+        params: P,
+    ) -> impl Future<Item = R, Error = Web3ContractError>
     where
         S: AsRef<str>,
         P: Tokenize,

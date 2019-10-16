@@ -1,12 +1,12 @@
-use thiserror::Error;
 use ethabi::Contract;
 use serde::Deserialize;
+use serde_json::Error as JsonError;
 use std::collections::HashMap;
 use std::fs::File;
-use std::path::Path;
-use web3::types::Address;
-use serde_json::Error as JsonError;
 use std::io::Error as IoError;
+use std::path::Path;
+use thiserror::Error;
+use web3::types::Address;
 
 #[derive(Debug, Deserialize)]
 pub struct Artifact {

@@ -118,7 +118,8 @@ impl<T: Transport> Context<T> {
     }
 
     pub fn claim(&self, account: Address) -> impl Future<Item = (), Error = ContextError> {
-        self.ico.function("claim", ())
+        self.ico
+            .function("claim", ())
             .from(account)
             .send()
             .map(|_| ())

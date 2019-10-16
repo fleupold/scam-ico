@@ -4,12 +4,14 @@
   "private": true,
   "description": "Scam ICO onboarding exercise",
   "scripts": {
+    "deploy": "truffle migrate --reset",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "license": "UNLICENSED",
   "devDependencies": {
     "@openzeppelin/contracts": "^2.3.0",
     "canonical-weth": "^1.4.0",
+    "solidity-coverage": "^0.7.0-beta.2",
     "truffle": "^5.0.38",
     "web3": "^1.2.1"
   }

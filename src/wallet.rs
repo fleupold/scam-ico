@@ -11,19 +11,15 @@ pub struct Wallet {
 
 struct Account {
     public: Address,
-    private: Option<SecretKey>,
+    _private: Option<SecretKey>,
 }
 
 impl Wallet {
     pub fn with_mnemonic(mnemonic: Mnemonic, count: usize) -> Wallet {
         let accounts = (0..count)
             .map(|i| {
-                let seed = Seed::new(&mnemonic, &format!("m/44'/60'/0'/0/{}", i));
-                let private: SecretKey = unimplemented!();
-                Account {
-                    public: private.public().address().into(),
-                    private: Some(private),
-                }
+                let _seed = Seed::new(&mnemonic, &format!("m/44'/60'/0'/0/{}", i));
+                unimplemented!()
             })
             .collect();
         Wallet { accounts }
@@ -38,7 +34,7 @@ impl Wallet {
                 .iter()
                 .map(|account| Account {
                     public: *account,
-                    private: None,
+                    _private: None,
                 })
                 .collect();
             Ok(Wallet { accounts })
